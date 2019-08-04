@@ -10,6 +10,8 @@ bool ctc = false
 bool std = true
 string filter = "none"
 number pager = 28
+var DB = Connect("TestComputer2")
+var rooms = DB.GetMemories()
 
 var ext = -1
 var ms = -1
@@ -504,37 +506,8 @@ loop
             Print("Moving " + argv[1] + " to " + argv[2] + "...")
             SetPosition(argv[1], argv[2])
         end
-    else if argv[0] == "unlock"
-        if argc < 2
-            string cmd = Input("What: ")
-            Append(argv, cmd)
-            argc = Count(argv)
-        end
-        argv[1] = Expand(argv[1])
-        if argv[1] == "all"
-            if argc < 3
-                string cmd = Input("Room: ")
-                Append(argv, cmd)
-                argc = Count(argv)
-            end
-            if argv[2] == "here"
-                argv[2] = GetRoom("Sebastian")
-            end
-            argv[2] = Expand(argv[2])
-            lastroom = argv[2]
-            SaveMemory("lastroom", lastroom)
-            loop GetThingsInRoom(argv[2])
-                if GetTypeOfThing(@) == "door"
-                    # Print("unlocking " + @ + "...")
-                    Unlock(@)
-                end
-            end
-        else
-            # Print("unlocking " + argv[1] + "...")
-            lastmsg = argv[1]
-            SaveMemory("lastmsg", lastmsg)
-            Unlock(argv[1])
-        end
+    else if argv[0] == "warp"
+        ShowWarp()
     else
         Error("unknown command: " + argv[0])
         Print("Type 'help' for a list of commands")
@@ -839,7 +812,7 @@ void Help()
         Append(help, " set: tweak some options")
         Append(help, " show: (re)display the list")
         Append(help, " slurp: travel through the internet")
-        Append(help, " unlock: unlock door(s)")
+        Append(help, " warp: show warp library options")
         Append(help, " zap: knock <person> out")
         Append(help, " '@': expands to the last room from a prev. command")
         Append(help, " '?': expands to the last message from a prev. command")
@@ -985,4 +958,219 @@ void Help()
             Error("no hep available for " + argv)
         end
     end
+end
+
+
+# Extract a room from a GetPosition result
+string ExtractRoom(string input)
+    var namestart = false
+    string result = ""
+    loop char in input
+        if char == " "
+            namestart = true
+        end
+        if namestart == true
+            if char != ","
+                if char != " "
+                    result += char
+                end
+            else
+                namestart = false
+                break
+            end
+        end
+    end
+    return result
+end
+
+# Get the room Sebastian is currently in
+string GetCurRoom()
+     var room = GetPosition("Sebastian")
+     var result = ExtractRoom(room)
+     return result
+end
+
+
+# Add a room to the database
+void AddRoom(string room)
+    loop key in rooms
+        if DB.LoadMemory(key) == room
+            Print("This room is already in the database")
+            Sleep(0.5)
+            return
+        end
+    end
+    Print("Please enter a name for " + room)
+    string name = Input("> ")
+    DB.SaveMemory(name, room)
+end
+
+
+void DeleteRoom(string room)
+    loop key in rooms
+        if DB.LoadMemory(key) == room
+            Print("Are you sure you want to delete " + key + " from the database? [y/n]")
+            string answer = Input("> ")
+            if answer == "y" or answer == "Y"
+                DB.EraseMemory(key)
+            end
+            break
+        end
+    end
+end
+
+
+void RenameRoom(string room)
+    loop key in rooms
+        if DB.LoadMemory(key) == room
+            DB.EraseMemory(key)
+            Print("Please enter a new name for " + room)
+            var name = Input("> ")
+            DB.SaveMemory(name, room)
+        end
+    end
+end
+
+
+void PrintItems(number min, number max)
+    number i = 0
+    loop room in rooms
+        if !(i < min)
+            if !(i > max)
+                Print("[" + i + "] " + room)
+            end
+        end
+        i++
+    end
+        
+end
+
+# Show the list of rooms
+string ShowList(string type)
+    ClearText()
+    string prompt = ""
+    if type == "edit"
+        prompt = "Please select a room to edit"
+    else
+        prompt = "Please select a room to teleport to"
+    end
+    var height = (Height() / 8) - 4
+    var total = Count(rooms)
+    string result = ""
+    
+    Print(prompt)
+    
+    # Check if all the rooms will fit on the screen
+    if total + 2 < height
+        PrintItems(0, total - 1)
+    else
+        number location = 0
+        PrintItems(0, height - 1)
+        loop
+            if IsKeyPressed("space")
+                break
+            else if IsKeyPressed("down")
+                ClearText()
+                location += height
+                if location > total
+                    location = total - 1
+                end
+                PrintItems(location, height + location)
+            else if IsKeyPressed("up")
+                ClearText()
+                location -= height
+                if location <= 0
+                    location = 0
+                    Print(prompt)
+                    PrintItems(0, height - 1)
+                else
+                    PrintItems(location, height + location)
+                end
+            end
+        end
+    end
+    Sleep(0.1)
+    number key = Input("> ")
+    return DB.LoadMemory(rooms[key])
+end
+
+
+# Teleport Sebastian to the given room
+void Teleport(string room)
+    # Connect to mover
+    var movername = "Lodge_FirstCorridor_LargeComputerL4_LargeComputerL4_1"
+    var Mover = Connect(movername)
+    
+    # Get the room Sebastian is currently in
+    var curroom = GetCurRoom()
+    
+    # Bring the mover to the current room
+    var items = GetThingsInRoom(curroom)
+    SetPosition(movername, items[0])
+    
+    # Perform the teleport
+    items = GetThingsInRoom(room)
+    Mover.MovePerson("Sebastian", items[0])
+
+    # Send the mover back to the Testing room
+    items = GetThingsInRoom("Testing")
+    SetPosition(movername, items[0])
+end
+
+void ShowWarp()
+   ### Main program ####
+    loop
+        # reload rooms every time we loop
+        rooms = DB.GetMemories()
+
+        ClearText()
+        var room = ""
+        Print("What would you like to do?")
+        Print("[A]dd the current room to the list")
+        Print("[C]ustom room entry")
+        Print("[E]dit the list of rooms")
+        Print("[T]eleport to a room")
+        Print("[Q]uit, go back")
+        var selection = Input("> ")
+
+        # Do stuff
+        if selection == "A" or selection == "a"
+            room = GetCurRoom()
+            AddRoom(room)
+        else if selection == "C" or selection == "c"
+            Print("Enter the custom room you want to add.")
+            selection = Input("> ")
+            AddRoom(selection)
+        else if selection == "E" or selection == "e"
+            if Count(rooms) == 0
+                Print("No rooms in database")
+                Sleep(0.5)
+            else
+                room = ShowList("edit")
+                Print("Would you like to [D]elete or [C]hange the name?")
+                selection = Input("> ")
+                if selection == "D" or selection == "d"
+                    DeleteRoom(room)
+                else if selection == "C" or selection == "c"
+                    RenameRoom(room)
+                else
+                    Print("Invalid Selection")
+                    Sleep(0.5)
+                end
+            end
+        else if selection == "T" or selection == "t"
+            if Count(rooms) == 0
+                Print("No rooms in database")
+                Sleep(0.5)
+            else
+                room = ShowList("teleport")
+                Teleport(room)
+            end
+        else if selection == "Q" or selection == "q"
+            break
+        else
+            Print("Invalid Selection")
+            Sleep(0.5)
+        end
+    end 
 end
