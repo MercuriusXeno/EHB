@@ -1,0 +1,7 @@
+SetMhz(500)
+SetMaxTime(-2)
+EnableAPI("internet")
+EnableAPI("arcade")
+EnableAPI("floppy")
+EnableAPI("memory")
+EnableAPI("door")
