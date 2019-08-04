@@ -1,0 +1,36 @@
+void CheckBalance()
+    # GiveMeMoney()
+    SummonHackerBoard()
+end
+
+void SummonHackerBoard()
+     var ps = Connect("LongsonPlaystation")
+     var psroom = ps.GetRoom("LongsonPlaystation")
+     var sebroom = ps.GetRoom("Sebastian")
+     if psroom == sebroom
+         ps.SetPosition("LongsonPlaystation", "Testing_Chair2_7")
+     else
+         ps.SetPosition("LongsonPlaystation", "SebastianCreditCard")
+         
+         ps.InteractWith("Sebastian", "LongsonPlaystation")
+     end
+end
+
+void GiveMeMoney()
+    var computer = Connect("FinanceComputer")
+    computer.ChangeBalance(GetNameOfCardOwner(), 50)
+    var balance = computer.GetBalanceForPerson(GetNameOfCardOwner())
+    Print("Balance increased by 50")
+end
+
+void MakeTransaction(number amount)
+	var computer = Connect("FinanceComputer")
+    var sign = "+"
+    var displayAmount = amount
+    if amount < 0
+        sign = "-"
+        displayAmount = amount * -1
+    end
+	Print(sign + " $" + displayAmount)
+	computer.ChangeBalance(GetNameOfCardOwner(), amount)
+end
