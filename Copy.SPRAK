@@ -1,0 +1,7 @@
+ExtractAndCopy()
+
+void ExtractAndCopy()
+    string name = GetName()
+    Say('Copy: ' + name)
+    CopyToClipboard(name)
+end
