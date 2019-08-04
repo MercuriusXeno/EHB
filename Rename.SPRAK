@@ -1,0 +1,17 @@
+SetName("Nav")
+
+void SetName(string new)
+    string old = GetLabel()
+    if old == new
+        Say('Already labeled ' + new + '?!')
+        return
+    end
+    if (old == "")
+        Say('No Label?!')
+    else
+        Say('Label was: ' + old)  
+    end
+    SetLabel(new)
+    Sleep(1)
+    Say('Now ' + new)
+end
