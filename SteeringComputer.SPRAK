@@ -1,0 +1,457 @@
+Main()
+
+# number of seconds that should elapse before
+# nav reports it's still listening
+Number ScPongDelay()
+    return 10
+end
+
+void Main()
+    # refresh static memory
+    
+    ClearMemories()
+   
+ 
+    # clear screen
+    ClearText()
+    
+    # initialize people for person search
+    # IndexPeople()
+    
+    var newTime = Time()
+    var oldTime = 0
+    # main loop
+    loop
+        newTime = Time()
+        # WhatYouDoing()
+        # WhatYouCarry()
+        # WatchMyBack()
+        # RememberADoor()
+        OpenAllDoors()
+        HeartKeepsYouFit()
+        CheckMessages()
+        
+        # report state for sanity                
+        if newTime - oldTime > ScPongDelay()
+            Report()
+            oldTime = newTime
+        end
+    end
+end
+
+void Report()
+    var mpf = Connect(MpfName())
+    var action = mpf.GetAction(seb())
+    if !Contains(DndActions(), action)
+        Echo("Listening...")
+    end
+end
+
+void IndexPeople()
+    var pc = Connect(MpfName())
+    if !HasMemory("PersonCount")
+        var people = pc.GetPeople()
+        var personCount = Count(people)
+        SaveMemory("PersonCount", personCount)
+    
+        loop i from 0 to personCount - 1
+            SaveMemory("Person" + i, people[i])
+        end
+    end
+    Print('Done indexing people')
+end
+
+Array SafeObjectTypes()
+    var st = []
+    Append(st, "creditcard")
+    Append(st, "modifier")
+    Append(st, "floppy")
+    Append(st, "mysticalcube") 
+    Append(st, "key")
+    Append(st, "drink")
+    return st
+end
+
+Array UnsafeObjectTypes()
+    var st = []
+    Append(st, "taser")
+    return st
+end
+
+void WatchMyBack()
+    var room = GetRoom(seb())
+    var people = GetPeopleInRoom(room)
+    loop person in people
+        if person != seb()           
+            var stuff = GetThingsInRoom(person + '_inventory')
+            loop thing in stuff
+                var thingType = GetTypeOfThing(thing)
+                if Contains(UnsafeObjectTypes(), thingType)
+                    var pc = Connect(MpfName())
+                    Echo('Yoinking ' + thingType)
+                    pc.SetPosition(thing, seb())
+                end
+            end
+        end
+    end
+end
+
+string GetPeopleInRoom(string r)
+    array people = []
+    loop i from 0 to LoadMemory("PersonCount") - 1
+        var person = LoadMemory("Person" + i)
+        var room = GetRoom(person)
+        if room == r
+            Append(people, person)
+        end
+    end
+    return people
+end
+
+string LastKnownRoom()
+    if !HasMemory("LastKnownRoom")
+        SaveMemory("LastKnownRoom", "")
+    end
+    var room = LoadMemory("LastKnownRoom")
+    return room
+end
+
+# refer to self
+string seb()
+    return "Sebastian"
+end
+
+# trusty dusty extractor
+string ex()
+    return "Hotel_ServerBasement_Extractor_1"
+end
+
+string Crowbar()
+    return "SodaStorage_Radio_1"
+end
+
+
+array IgnoredActions()
+    array ig = []
+    Append(ig, "Walking")
+    Append(ig, "Hacking")
+    Append(ig, "") # literally nothing    
+    Append(ig, "HackingZoomedIn")
+    Append(ig, "UsingComputer")
+    return ig
+end
+
+array DndActions()
+    array ig = []
+    Append(ig, "Hacking")
+    Append(ig, "HackingZoomedIn")
+    Append(ig, "UsingComputer")
+    return ig
+end
+
+array UnsafePeople()
+    array ns = []
+    
+    return ns
+end
+
+bool IsDoorOfRoomWithBadGuy(string door)
+    var room = GetRoom(door)
+    var people = GetPeopleInRoom(room)
+    if Count(people) == 0
+        return false
+    end
+    loop person in people
+        if Contains(UnsafePeople(), person)
+            return true
+        end
+    end
+    return false
+end
+
+void Copy(string s)
+    var rip = Connect(ex())
+    rip.CopyToClipboard(s)
+    Echo('Copied: ' + s)
+end
+
+void SetName(string object, string newLabel)
+    var rip = Connect(ex())
+    Echo(rip.GetLabel())
+end
+
+void FindAction(string action)
+    if !Contains(IgnoredActions(), action)        
+        Echo(action)
+        Copy(action)
+    end
+end
+
+
+bool IsValidDoor(string s)
+    var mpf = Connect(MpfName())
+    return mpf.GetTypeOfThing(s) == "door"
+end
+
+string FindADoor()    
+    var cb = Connect(Crowbar())
+    var db = Connect(MpfName())
+    var target = cb.GetTarget()
+    var targetType = db.GetTypeOfThing(target)
+    if targetType == "door"
+        return target
+    end
+    var room = db.GetRoom(target)    
+    var doors = GetDoorsInRoom(room)
+    if Count(doors) > 0
+        var door = doors[0]
+        return door
+    end    
+    return "NoDoor"
+end
+
+string Sneak()
+    if HasMemory("HijackDoor")
+        var door = LoadMemory("HijackDoor")
+        return door
+    end
+    return "NoDoor"
+end
+
+bool ShouldSneak()
+    var cb = Connect(Crowbar())
+    # check the cb for whether it wants to be snuck
+    if !cb.IsHijacking()
+        return false
+    end
+    
+    # check the door to make sure it's a valid target
+    if !IsValidDoor(Sneak())
+        return false
+    end
+    
+    # check the ROOM for unsafe people, avoid zappers
+    #if IsDoorOfRoomWithBadGuy(Sneak())
+    #    return false
+    #end
+    
+    return true    
+end
+
+bool IsSneaky(var user)
+    if (user != seb())
+        return false
+    end
+    var shouldSneak = false
+    if HasMemory("ShouldSneak")
+        shouldSneak = LoadMemory("ShouldSneak")
+    end
+    return shouldSneak
+end
+
+
+# tries to remember the door Seb wants to Sneak() to
+void RememberADoor()
+    var sneak = Sneak()
+    var foundDoor = FindADoor()
+    var doorChanged = false
+    if (sneak != foundDoor)
+        SaveMemory("HijackDoor", foundDoor)
+        doorChanged = true
+    end
+    
+    # also remember if we're sneaky
+    var shouldSneak = ShouldSneak()
+    if (shouldSneak != IsSneaky(seb()))
+        SaveMemory("ShouldSneak", shouldSneak)
+    end
+    
+    # if the door changed, report about it
+    if (doorChanged)
+        # if we're sneaking, talk about it
+        if (!shouldSneak)
+            if IsDoorOfRoomWithBadGuy(Sneak())
+                Echo("Sneak target isn't safe.")                
+            end
+        else
+            Echo("Sneaking to " + Sneak())
+        end
+    end
+end
+
+void WhatYouDoing()
+    var mpf = Connect(MpfName())    
+    var action = mpf.GetAction(seb())
+    #FindAction(action)
+    #var intercept = "WalkingThroughDoor"
+    #if action == intercept
+
+    #end
+end
+
+bool Contains(array listOfItems, string targetItem)
+    loop item in listOfItems
+        if item == targetItem
+            return true
+        end
+    end
+    return false
+end
+
+void WhatYouCarry()
+    var mpf = Connect(MpfName())
+    var stuff = mpf.GetThingsInRoom(seb() + '_inventory')
+    # do stuff with your stuff
+end
+    
+string RadioName()
+    return "TowerApartmentsLobby_Radio_2"
+end
+
+string MasterKeyName()
+    return "Hotel_Lobby_ComputerCashier"
+end
+
+string Transmitter()
+    return "SodaStorage_Radio_1"
+end
+
+# place to put the radio after executing its function
+string SafeAtHome()
+    return "Hotel_Room1_FuseBox"
+end
+
+void HeartKeepsYouFit()
+    var heart = Connect("Heart")
+    var optimalSpeed = 20
+    var speed = heart.GetNumericData(seb(), "walkSpeed")
+    if (speed > optimalSpeed || speed < optimalSpeed)
+        Echo('Seb speed: ' + speed)    
+        heart.SetNumericData(seb(), "walkSpeed", optimalSpeed)
+    end
+    
+    var sleepy = heart.GetNumericData(seb(), "sleepiness")
+    var optimalFatigue = 30
+    if (sleepy > optimalFatigue + 10)
+        Echo('Seb fatigue: ' + sleepy)
+        heart.SetNumericData(seb(), "sleepiness", optimalFatigue)
+    end
+    
+    var corruption = heart.GetNumericData(seb(), "corruption")
+    if (corruption > 0)
+        Echo('Seb corrupted: ' + corruption)
+        heart.SetNumericData(seb(), "corruption", 0)
+    end
+end
+
+string MpfName()
+    return "PoliceOfficeInterior_MinistryOfficeWorkstationComputer_1"
+end   
+
+string GetRoom(string person)
+    var mpf = Connect(MpfName())    
+    var room = mpf.GetRoom(person)
+    return room    
+end
+
+void Echo(string s)
+    array memories = GetMemories()
+    loop i from 0 to 100
+        if !HasMemory(MessageName(i))
+            SaveMemory(MessageName(i), s)
+            break
+        end
+    end
+end
+
+string MessageName(Number count)
+    return 'Message' + count
+end
+
+void CheckMessages()
+    array messages = GetMemories()
+    if Count(messages) == 0
+        return
+    end
+    array removeMessages = []
+    loop i from 0 to 100
+        if HasMemory(MessageName(i))
+	         		var s = LoadMemory(MessageName(i))
+          		var radioRoom = GetRoom(RadioName())    
+         			var userRoom = GetRoom(seb())
+     			    # Radio follows you!
+         			SetPosition(RadioName(), seb())          
+         			var radio = Connect(RadioName())      
+     			    # say what you came to say  
+         			radio.Print(s)
+         			# stay a while
+     			    Sleep(1)
+         			# go back to the hotel room
+         			SetPosition(RadioName(), SafeAtHome())
+     			    Append(removeMessages, MessageName(i))
+     		end
+    end
+    loop mNum in removeMessages
+        EraseMemory(mNum)
+    end
+end
+
+void OpenAllDoors()
+    var userRoom = GetRoom(seb())
+    if (LastKnownRoom() != userRoom)
+        number unlockedDoors = UnlockDoorsInRoom(userRoom)
+    end    
+    SaveMemory("LastKnownRoom", userRoom)
+end
+
+void SetPosition(string thing, string target)
+    var mpf = Connect(MpfName())
+    mpf.SetPosition(thing, target)
+end
+
+array GetThingsInRoom(string room)
+    var mpf = Connect(MpfName())
+    return mpf.GetThingsInRoom(room)
+end
+
+string GetTypeOfThing(string thing)
+    var mpf = Connect(MpfName())
+    return mpf.GetTypeOfThing(thing)
+end    
+
+array GetDoorsInRoom(string room)
+    array doors = []
+    var things = GetThingsInRoom(room)
+    loop thing in things
+        var typeOfThing = GetTypeOfThing(thing)
+        if (typeOfThing == "door")
+            Append(doors, thing)
+        end
+    end
+    return doors
+end
+
+bool UnlockDoor(string doorName)
+    var unlocker = Connect(MasterKeyName())
+    return unlocker.Unlock(doorName)
+end
+
+Number UnlockDoorsInRoom(string room)
+    var doors = GetDoorsInRoom(room)
+    var unlockCount = 0
+    loop door in doors
+        if UnlockDoor(door)
+            unlockCount = unlockCount + 1
+        end
+    end
+    return unlockCount
+end
+
+string Recorder()
+    return "Hotel_Office_RecorderComputerWithMonitor_1"
+end
+
+bool StringContains(string c, string s)
+    var rc = Connect(Recorder())
+    return rc.StringContains(c, s)
+end
