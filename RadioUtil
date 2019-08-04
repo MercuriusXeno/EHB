@@ -1,0 +1,87 @@
+# What the program should do. Find() or Remote()
+#FindTypeOfThingNear(type,thing)
+#Remote()
+#StealAllTheThings("extractor")
+#FindRoom("Test")
+GetNavBox()
+
+void GetNavBox()    
+     var ps = Connect("LongsonPlaystation")
+     var psroom = ps.GetRoom("TestComputer1")
+     var sebroom = ps.GetRoom("Sebastian")
+     if psroom == sebroom
+         ps.SetPosition("TestComputer1", "Testing_Chair2_7")
+     else
+         ps.SetPosition("TestComputer1", "SebastianCreditCard")
+         
+         var DB = Connect("TestComputer2")
+
+         DB.ClearMemories()
+         ps.InteractWith("Sebastian", "TestComputer1")
+     end
+end
+
+
+void FindRoom(string r)
+    var pc = Connect("MainFrame")
+    var sc = Connect("SteeringComputer")
+    var allRooms = pc.GetAllRooms()
+    loop i in allRooms
+        var fuzzyMatches = sc.StringContains(i, r)
+        if fuzzyMatches
+            Print(i)
+        end
+    end
+end        
+
+# Name of the Victim to control
+string Victim()
+    return "CityHallGuard"
+end
+
+# Remotely control someone
+void Remote()
+end
+
+string GetFirstDoor(string thingOrPerson)
+    # Find the room of some object by name
+    var pc = Connect("SteeringComputer")
+    var mpf = Connect(pc.MpfName())
+    var doors = pc.GetDoorsInRoom(thingOrPerson)
+    if Count(doors) == 0
+        return "NoDoor"
+    end
+    var firstDoor = doors[0]
+    return firstDoor
+end
+
+void StealAllTheThings(string type)
+    var pc = Connect("MainFrame")
+    var allThings = pc.GetThingsOfType(type)
+    if Count(allThings) == 0
+        Print('Thing not found!')
+        return
+    end
+    loop i in allThings
+        pc.SetPosition(i, "Sebastian")
+    end
+    Print('Yoink!')
+end
+
+void FindTypeOfThingNear(string type, string thing)
+    # get the room of that thing
+    var pc = Connect("SteeringComputer")
+    var room = pc.GetRoom(thing)
+
+    # get other things in that room
+    var thingsInRoom = pc.GetPeopleInRoom(room)
+    if Count(thingsInRoom) == 0
+        Print("Nobody there")
+    else
+        loop item in thingsInRoom
+            if pc.GetTypeOfThing(item) == type
+                pc.Copy(item)
+            end
+        end
+    end
+end
