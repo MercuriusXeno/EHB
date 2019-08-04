@@ -1,0 +1,15 @@
+var tap = Connect('Poor_WaterTap_Poor_WaterTap')
+
+var user = GetUser()
+
+var heart = Connect('Heart')
+
+number sleepy = heart.GetNumericData(user, 'sleepiness')
+Say('Rest value: ' + sleepy)
+Sleepiness(-sleepy)
+
+tap.SetLiquidAmount(1337)
+
+# Make sure Nav main is running
+var nav = Connect("SteeringComputer")
+nav.Main()
